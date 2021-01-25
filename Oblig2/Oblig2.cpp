@@ -26,7 +26,10 @@ public:
         return state;
     }
 
-    void paintTrafficLight(HDC hdc, HBRUSH hBrushBlack) {
+    void paintTrafficLight(HDC hdc) {
+
+        HBRUSH hBrushBlack = CreateSolidBrush(RGB(0, 0, 0));
+        HGDIOBJ hOrg = SelectObject(hdc, hBrushBlack);
 
         //kode for svart firkant
         Rectangle(hdc, x, y, x + 50, y + 140);
@@ -91,63 +94,15 @@ public:
             break;
         }
         //Set svart til den normale igjen
-        SelectObject(hdc, hBrushBlack);
+        SelectObject(hdc, hOrg);
         //Sletter brushes
+        DeleteObject(hBrushBlack);
         DeleteObject(hBrushRed);
         DeleteObject(hBrushYellow);
         DeleteObject(hBrushGreen);
         DeleteObject(hBrushGrey);
     }
 };
-
-/*
-class Road {
-public:
-    int lanes;
-    int x, y; //koordinatar for øvre venstre hjørne
-    bool direction; //0 = left->right, 1 = top->bottom
-    Road(int _x, int _y, bool _direction) : lanes(2), x(_x), y(_y), direction(_direction) {}
-    Road(int _lanes, int _x, int _y, bool _direction): lanes(_lanes), x(_x), y(_y), direction(_direction) {}
-
-    void paintRoad(HDC hdc) {
-
-        //TODO eitt road-objekt = 2 vegar som krysse?!?
-
-        //lagar brushes - TODO flytte ut/lagre ein annan plass?
-        //Gul brush
-        HBRUSH hBrushYellow = CreateSolidBrush(RGB(255, 255, 0));
-        //Grå brush
-        HBRUSH hBrushGrey = CreateSolidBrush(RGB(128, 128, 128));
-
-        //hjelpevar for koordinatar
-
-
-        HGDIOBJ hOrg = SelectObject(hdc, hBrushGrey);
-
-        if (direction) {
-            int xEnd = x + 55, yBottom = y + 500;
-            int xMiddle = x + 25, xMiddleEnd = xMiddle + 5;
-            Rectangle(hdc, x, y, xEnd, yBottom);
-            SelectObject(hdc, hBrushYellow);
-            Rectangle(hdc, xMiddle, y, xMiddleEnd, yBottom);
-        }
-        else {
-            int xEnd = x + 500, yBottom = y + 55; //25 pr lane + 5 for midtstripe
-            int yMiddleTop = y + 25, yMiddleBottom = yMiddleTop + 5;
-            Rectangle(hdc, x, y, xEnd, yBottom);
-            SelectObject(hdc, hBrushYellow);
-            Rectangle(hdc, x, yMiddleTop, xEnd, yMiddleBottom);
-        }
-
-        //gul midtstripe
-
-        SelectObject(hdc, hOrg);
-        //sletter brushes
-        DeleteObject(hBrushGrey);
-        DeleteObject(hBrushYellow);
-    }
-};
-*/
 
 class Car {
 public:
@@ -391,7 +346,7 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
    hInst = hInstance; // Store instance handle in our global variable
 
    HWND hWnd = CreateWindowW(szWindowClass, szTitle, WS_OVERLAPPEDWINDOW,
-      CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, nullptr, nullptr, hInstance, nullptr);
+      50, 50, 1280, 770, nullptr, nullptr, hInstance, nullptr);
 
    if (!hWnd)
    {
@@ -539,28 +494,39 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         {
             PAINTSTRUCT ps;
             HDC hdc = BeginPaint(hWnd, &ps);
-            // TODO: Add any drawing code that uses hdc here...
+            //HDC memhdc = CreateCompatibleDC(hdc);
+            //HBITMAP memBM = CreateCompatibleBitmap(hdc, 1280, 720);
+            //SelectObject(memhdc, memBM);
             //teikne trafikklyset
+            tl1.paintTrafficLight(hdc);
+            tl2.paintTrafficLight(hdc);
 
-            //todo berre putte dette også inn i metoden til trafikklyset?
-            HBRUSH hBrushBlack = CreateSolidBrush(RGB(0, 0, 0));
-            HGDIOBJ hOrg = SelectObject(hdc, hBrushBlack);
-
-            tl1.paintTrafficLight(hdc, hBrushBlack);
-            tl2.paintTrafficLight(hdc, hBrushBlack);
-
-            SelectObject(hdc, hOrg);
-            DeleteObject(hBrushBlack);
-
+            //teikne vegkrysset
             road.paintRoadCrossing(hdc);
+
+            //teikne billistene
             carListVer.paintCars(hdc);
             carListHor.paintCars(hdc);
+
+            //skrive ut verdiane
             WCHAR tekst[100];
             wsprintf(tekst, L"pw: %d, pn: %d", pw, pn);
-            //TODO skriv ut sannsynsverdiane?!?
             TextOut(hdc, 10, 10, tekst, lstrlen(tekst));
 
+            //BitBlt(hdc, 0, 0, 1280, 720, memhdc, 0, 0, SRCCOPY);
+
+
+            /*HBRUSH hBrush = (HBRUSH)GetStockObject(WHITE_BRUSH);
+            HPEN hPen = (HPEN)GetStockObject(WHITE_PEN);
+            SelectObject(hdc, hBrush);
+            SelectObject(hdc, hPen);
+
+            Rectangle(hdc, 0, 720, 2560, 2560);
+            Rectangle(hdc, 1280, 0, 2560, 2560);*/
+
             EndPaint(hWnd, &ps);
+            //DeleteDC(memhdc);
+            //DeleteObject(memBM);
         }
         break;
     case WM_DESTROY:
