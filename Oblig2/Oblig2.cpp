@@ -11,7 +11,7 @@ HINSTANCE hInst;                                // current instance
 WCHAR szTitle[MAX_LOADSTRING];                  // The title bar text
 WCHAR szWindowClass[MAX_LOADSTRING];            // the main window class name
 
-static int pw = 0, pn = 0;
+static int pw = 0, pn = 0, pe = 0, psn = 0;
 
 class TrafficLight {
 public:
@@ -104,61 +104,90 @@ public:
     }
 };
 
+//gir ein tilfeldig farge
+COLORREF RandomColor() {
+    int range_max = 256, range_min = 0;
+    int randomR = (double)rand() / (RAND_MAX + 1) * (range_max - range_min) + range_min; //range_min <= random < range_max
+    int randomG = (double)rand() / (RAND_MAX + 1) * (range_max - range_min) + range_min; //range_min <= random < range_max
+    int randomB = (double)rand() / (RAND_MAX + 1) * (range_max - range_min) + range_min; //range_min <= random < range_max
+    return RGB(randomR, randomG, randomB);
+}
+
 class Car {
 public:
     int x, y;
     COLORREF color;
-    int direction; //0 = l->r, 1 = r->l, 2 = t->b, 3 = b->t. Bruker berre 0 og 2 nå?
+    int direction; //0 = w->e, 1 = e->w, 2 = n->s, 3 = s->n
     bool driveDirection; //false = horisontal, true = vertikal
     TrafficLight* ptl; //trafikklyset til bilen..
     bool finished;
-    Car(int _x, int _y, COLORREF _color, bool _driveDirection, TrafficLight* _ptl): x(_x), y(_y), color(_color), driveDirection(_driveDirection), ptl(_ptl) {
+    Car(int _x, int _y, bool _driveDirection, TrafficLight* _ptl): x(_x), y(_y), driveDirection(_driveDirection), ptl(_ptl) {
         direction = 0;
         finished = false;
+        color = RandomColor();
     }
-    Car(int _x, int _y, COLORREF _color, int _direction, TrafficLight* _ptl) : x(_x), y(_y), color(_color), direction(_direction), ptl(_ptl) {
+    Car(int _x, int _y, int _direction, TrafficLight* _ptl) : x(_x), y(_y), direction(_direction), ptl(_ptl) {
         driveDirection = false;
         finished = false;
+        color = RandomColor();
     }
 
     void driveCar(int distance, int cross, int end, Car* pCarInFront) {
         //if (finished) return;
 
         int state = ptl->state;
+        bool stopp = false;
         //TODO detta her e rot...
-        if (pCarInFront == 0) {
-            if (driveDirection) { //vertikal
-                bool stopp = (y < cross && (y + 26 >= cross && (state == 0 || state == 1)));
-                if (!stopp) {
-                    y = y + distance;
-                    if (y > end) finished = true;
-                }
-            }
-            else { //horisontal
-                bool stopp = (x < cross && (x + 26 >= cross && (state == 0 || state == 1)));
-                if (!stopp) {
-                    x = x + distance;
-                    if (x > end) finished = true;
-                }
-            }
-        }
-        else {
-            if (driveDirection) { //vertikal
-                int yCar = pCarInFront->y;
-                bool stopp = (y < cross && y + 26 >= yCar) || (y < cross && (y + 26 >= cross && (state == 0 || state == 1)));
-                if (!stopp) {
-                    y = y + distance;
-                    if (y > end) finished = true;
-                }
-            }
-            else { //horisontal
+        switch (direction)
+        {
+        case 0: //w-e
+            if (pCarInFront == 0) stopp = (x < cross && (x + 30 >= cross && (state == 0 || state == 1)));
+            else {
                 int xCar = pCarInFront->x;
-                bool stopp = (x < cross && x + 26 >= xCar) || (x < cross && (x + 26 >= cross && (state == 0 || state == 1)));
-                if (!stopp) {
-                    x = x + distance;
-                    if (x > end) finished = true;
-                }
+                stopp = (x < cross && x + 26 >= xCar) || (x < cross && (x + 30 >= cross && (state == 0 || state == 1)));
             }
+            if (!stopp) {
+                x = x + distance;
+                if (x > end) finished = true;
+            }
+            break;
+        case 1: //e-w
+            // TODO stoppar litt langt frå krysset...
+            if (pCarInFront == 0) stopp = (x > cross && (x - 30 <= cross && (state == 0 || state == 1)));
+            else {
+                int xCar = pCarInFront->x;
+                stopp = (x > cross && x - 26 <= xCar) || (x > cross && (x - 30 <= cross && (state == 0 || state == 1)));
+            }
+            if (!stopp) {
+                x = x - distance;
+                if (x < end) finished = true;
+            }
+            break;
+        case 2: //n-s
+            if (pCarInFront == 0) stopp = (y < cross && (y + 30 >= cross && (state == 0 || state == 1)));
+            else {
+                int yCar = pCarInFront->y;
+                stopp = (y < cross && y + 26 >= yCar) || (y < cross && (y + 30 >= cross && (state == 0 || state == 1)));
+            }
+            if (!stopp) {
+                y = y + distance;
+                if (y > end) finished = true;
+            }
+            break;
+        case 3: //s-n
+            // TODO stoppar litt langt frå krysset
+            if (pCarInFront == 0) stopp = (y > cross && (y - 30 <= cross && (state == 0 || state == 1)));
+            else {
+                int yCar = pCarInFront->y;
+                stopp = (y > cross && y - 26 <= yCar) || (y > cross && (y - 30 <= cross && (state == 0 || state == 1)));
+            }
+            if (!stopp) {
+                y = y - distance;
+                if (y < end) finished = true;
+            }
+            break;
+        default:
+            break;
         }
     }
 
@@ -346,7 +375,7 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
    hInst = hInstance; // Store instance handle in our global variable
 
    HWND hWnd = CreateWindowW(szWindowClass, szTitle, WS_OVERLAPPEDWINDOW,
-      50, 50, 1280, 770, nullptr, nullptr, hInstance, nullptr);
+      CW_USEDEFAULT, 0, 1280, 720, nullptr, nullptr, hInstance, nullptr);
 
    if (!hWnd)
    {
@@ -372,15 +401,20 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
     static int x = 300, y = 300; //"globale" koordinatar
-    static int cStartWEX = x, cStartWEY = y + 34, cStartNSX = x + 255, cStartNSY = y-250; //startpos for bilane
+    static int cStartWEX = x, cStartWEY = y + 34, cStartNSX = x + 255, cStartNSY = y - 250; //startpos for bilane
+    static int cStartEWX = x + 555 - 16, cStartEWY = y + 4, cStartSNX = x + 284, cStartSNY = y + 305 - 16;
     //TODO: ein annan lokasjon på desse?
     static TrafficLight tl1(x + 150, y + 105, 2); //er grønt ved start, trafikklys for v->a
-    static TrafficLight tl2(x + 355, y - 190, 0); //er raudt ved start, trafikklys for n->s
+    static TrafficLight tl2(x + 150, y - 190, 0); //er raudt ved start, trafikklys for n->s
+    static TrafficLight tl3(x + 355, y - 190, 2); //er grønt ved start, trafikklys for a->v
+    static TrafficLight tl4(x + 355, y + 105, 0); //er raudt ved start, trafikklys for s->n
     //static Road road1(100, 300, false);
     //static Road road2(300, 75, true);
     static RoadCrossing road(x, y); //vegane og krysset
-    static CarList carListHor;
-    static CarList carListVer;
+    static CarList carListHor; //liste for bilar v->a
+    static CarList carListVer; //liste for bilar n->s
+    static CarList carListHorInv; //liste for bilar a->v
+    static CarList carListVerInv; //liste for bilar s->n
 
     switch (message)
     {
@@ -434,11 +468,15 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             //endre state på trafikklyset
             tl1.changeToNextState();
             tl2.changeToNextState();
+            tl3.changeToNextState();
+            tl4.changeToNextState();
             break;
 
         case 1: //biltimer
-            carListVer.driveCars(10, y, y+305);
-            carListHor.driveCars(10, x+250, x+555);
+            carListVer.driveCars(10, y, y + 305);
+            carListHor.driveCars(10, x + 250, x + 555);
+            carListHorInv.driveCars(10, x + 305, x);
+            carListVerInv.driveCars(10, y + 55, y - 250);
             break;
 
         case 2: //oppretta bilar
@@ -448,12 +486,21 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             int range_max = 100, range_min = 0;
             int randomW = (double)rand() / (RAND_MAX + 1) * (range_max - range_min) + range_min; //range_min <= random < range_max
             int randomN = (double)rand() / (RAND_MAX + 1) * (range_max - range_min) + range_min;
+            int randomE = (double)rand() / (RAND_MAX + 1) * (range_max - range_min) + range_min;
+            int randomS = (double)rand() / (RAND_MAX + 1) * (range_max - range_min) + range_min;
+
             //random er mellom 0 og 99
             if (randomW < pw) { //pw frå 0-100, pw=100 alltid bil, pw=0 ingen bil
-                carListHor.put(new Car(cStartWEX, cStartWEY, RGB(0, 0, 255), false, &tl1));
+                carListHor.put(new Car(cStartWEX, cStartWEY, 0, &tl1));
             }
             if (randomN < pn) { //pn frå 0-100, pn=100 alltid bil, pw=0 ingen bil
-                carListVer.put(new Car(cStartNSX, cStartNSY, RGB(255, 0, 0), true, &tl2));
+                carListVer.put(new Car(cStartNSX, cStartNSY, 2, &tl2));
+            }
+            if (randomE < pe) {
+                carListHorInv.put(new Car(cStartEWX, cStartEWY, 1, &tl3));
+            }
+            if (randomS < psn) {
+                carListVerInv.put(new Car(cStartSNX, cStartSNY, 3, &tl4));
             }
         }   
             break;
@@ -484,6 +531,21 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             pw = (pw + 10) >= 100 ? 100 : pw + 10;
             break;
 
+        case 0x44: //D
+            pe = (pe + 10) >= 100 ? 100 : pe + 10;
+            break;
+
+        case 0x41: //A
+            pe = (pe - 10) <= 0 ? 0 : pe - 10;
+            break;
+
+        case 0x57: //W
+            psn = (psn + 10) >= 100 ? 100 : psn + 10;
+            break;
+
+        case 0x53: //S
+            psn = (psn - 10) <= 0 ? 0 : psn - 10;
+            break;
         default:
             break;
         }
@@ -494,12 +556,20 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         {
             PAINTSTRUCT ps;
             HDC hdc = BeginPaint(hWnd, &ps);
+
+            //RECT clientRect;
+            //GetClientRect(hWnd, &clientRect);
+            //int width = clientRect.right - clientRect.left;
+            //int height = clientRect.bottom + clientRect.left;
             //HDC memhdc = CreateCompatibleDC(hdc);
             //HBITMAP memBM = CreateCompatibleBitmap(hdc, 1280, 720);
             //SelectObject(memhdc, memBM);
+
             //teikne trafikklyset
             tl1.paintTrafficLight(hdc);
             tl2.paintTrafficLight(hdc);
+            tl3.paintTrafficLight(hdc);
+            tl4.paintTrafficLight(hdc);
 
             //teikne vegkrysset
             road.paintRoadCrossing(hdc);
@@ -507,10 +577,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             //teikne billistene
             carListVer.paintCars(hdc);
             carListHor.paintCars(hdc);
+            carListHorInv.paintCars(hdc);
+            carListVerInv.paintCars(hdc);
 
             //skrive ut verdiane
             WCHAR tekst[100];
-            wsprintf(tekst, L"pw: %d, pn: %d", pw, pn);
+            wsprintf(tekst, L"pw: %d, pn: %d, pe: %d, ps %d", pw, pn, pe, psn);
             TextOut(hdc, 10, 10, tekst, lstrlen(tekst));
 
             //BitBlt(hdc, 0, 0, 1280, 720, memhdc, 0, 0, SRCCOPY);
@@ -524,9 +596,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             Rectangle(hdc, 0, 720, 2560, 2560);
             Rectangle(hdc, 1280, 0, 2560, 2560);*/
 
-            EndPaint(hWnd, &ps);
-            //DeleteDC(memhdc);
             //DeleteObject(memBM);
+            //DeleteDC(memhdc);
+
+            EndPaint(hWnd, &ps);
+
         }
         break;
     case WM_DESTROY:
@@ -534,6 +608,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         KillTimer(hWnd, 1);
         carListVer.Clear();
         carListHor.Clear();
+        carListHorInv.Clear();
+        carListVerInv.Clear();
         PostQuitMessage(0);
         break;
     default:
@@ -573,9 +649,13 @@ INT_PTR CALLBACK ProbDialog(HWND hDlg, UINT message, WPARAM wParam, LPARAM lPara
         HWND hStaticText1 = GetDlgItem(hDlg, IDC_STATICTEXT);
         HWND hStaticText2 = GetDlgItem(hDlg, IDC_STATICTEXT2);
         HWND hStaticText3 = GetDlgItem(hDlg, IDC_STATICTEXT3);
+        HWND hStaticText4 = GetDlgItem(hDlg, IDC_STATICTEXT4);
+        HWND hStaticText5 = GetDlgItem(hDlg, IDC_STATICTEXT5);
         SetWindowText(hStaticText1, L"Sannsyn for bilar frå vest->aust: (0-100)");
         SetWindowText(hStaticText2, L"Sannsyn for bilar frå nord->sør: (0-100)");
         SetWindowText(hStaticText3, L"");
+        SetWindowText(hStaticText4, L"Sannsyn aust->vest:");
+        SetWindowText(hStaticText5, L"Sannsyn sør->nord:");
         return (INT_PTR)TRUE;
     }
 
@@ -587,16 +667,22 @@ INT_PTR CALLBACK ProbDialog(HWND hDlg, UINT message, WPARAM wParam, LPARAM lPara
             int value1 = GetDlgItemInt(hDlg, IDC_EDIT1, &varInt1, false);
             BOOL varInt2 = true;
             int value2 = GetDlgItemInt(hDlg, IDC_EDIT2, &varInt2, false);
+            BOOL varInt3 = true;
+            BOOL varInt4 = true;
+            int value3 = GetDlgItemInt(hDlg, IDC_EDIT3, &varInt3, false);
+            int value4 = GetDlgItemInt(hDlg, IDC_EDIT4, &varInt4, false);
             HWND hStaticText3 = GetDlgItem(hDlg, IDC_STATICTEXT3);
-            if (varInt1 == FALSE || varInt2 == FALSE) {
+            if (varInt1 == FALSE || varInt2 == FALSE || varInt3 == FALSE || varInt4 == FALSE) {
                 SetWindowText(hStaticText3, L"Du skreiv ikkje inn eit tal!");
             }
-            else if (value1 > 100 || value1 < 0 || value2 > 100 || value2 < 0) {
+            else if (value1 > 100 || value1 < 0 || value2 > 100 || value2 < 0 || value3 > 100 || value3 < 0 || value4 > 100 || value4 < 0) {
                 SetWindowText(hStaticText3, L"Talet må vere mellom 0 og 100 (inklusivt)");
             }
             else {
                 pw = value1;
                 pn = value2;
+                pe = value3;
+                psn = value4;
                 EndDialog(hDlg, LOWORD(wParam));
                 return (INT_PTR)TRUE;
             }
